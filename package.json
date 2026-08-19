@@ -1,0 +1,10 @@
+{
+  "name": "qr-reditect",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "QR dinamicos: redirige codigo -> url_destino usando Supabase. Panel para crear y ver los QR.",
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

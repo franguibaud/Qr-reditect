@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de QR dinámicos</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", "Inter", system-ui, -apple-system, Arial, sans-serif;
+    background: #eef0f6; color: #16182a;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #6b7280; font-size: 13px; margin: 0 0 22px; }
+
+  .card {
+    background: #fff; border: 1px solid #e0e5f0; border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(20,30,80,.05);
+  }
+  .card h2 { font-size: 14px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: .4px; color: #4b5563; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field label { font-size: 12px; font-weight: 600; color: #4b5563; }
+  .field input {
+    font: inherit; font-size: 14px; padding: 9px 11px;
+    border: 1px solid #cfd5e3; border-radius: 8px; background: #fff;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 180px; }
+
+  .btn {
+    font: inherit; font-weight: 600; font-size: 13px;
+    padding: 10px 18px; border: 0; border-radius: 8px;
+    background: #1554C4; color: #fff; cursor: pointer;
+  }
+  .btn:hover { background: #123f99; }
+  .btn.ghost { background: #fff; color: #1554C4; border: 1px solid #cfd5e3; }
+  .btn.ghost:hover { background: #f3f5fa; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .msg { font-size: 13px; margin-top: 8px; }
+  .msg.error { color: #b91c1c; }
+  .msg.ok { color: #15803d; }
+
+  .qrlist { display: flex; flex-direction: column; gap: 12px; }
+  .qritem {
+    display: flex; gap: 14px; align-items: flex-start;
+    border: 1px solid #e5e8f0; border-radius: 10px; padding: 12px;
+  }
+  .qritem img { width: 84px; height: 84px; border-radius: 6px; border: 1px solid #eee; flex: none; }
+  .qritem .info { flex: 1; min-width: 0; }
+  .qritem .negocio { font-weight: 700; font-size: 14px; }
+  .qritem .codigo { font-size: 11px; color: #6b7280; margin-top: 1px; }
+  .qritem .destino { font-size: 12.5px; color: #333; word-break: break-all; margin-top: 4px; }
+  .qritem .clicks { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .qritem .acciones { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .qritem .acciones .btn { padding: 6px 10px; font-size: 12px; }
+
+  .editar-box { display: none; margin-top: 8px; gap: 6px; }
+  .editar-box.on { display: flex; flex-wrap: wrap; }
+  .editar-box input { flex: 1; min-width: 160px; font: inherit; font-size: 12.5px; padding: 6px 8px; border: 1px solid #cfd5e3; border-radius: 6px; }
+
+  #login { max-width: 340px; margin: 80px auto; text-align: center; }
+  #login .card { text-align: left; }
+  .vacio { color: #9aa3ba; font-size: 13px; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+
+<div id="login" class="wrap">
+  <div class="card">
+    <h2>Panel de QR dinámicos</h2>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="passInput" placeholder="Contraseña del panel">
+    </div>
+    <button class="btn" onclick="entrar()" style="width:100%">Entrar</button>
+    <div class="msg error" id="loginMsg"></div>
+  </div>
+</div>
+
+<div id="panel" class="wrap" style="display:none">
+  <h1>QR dinámicos</h1>
+  <p class="sub">Creá un QR nuevo o cambiá a dónde apunta uno que ya imprimiste — sin reimprimir nada.</p>
+
+  <div class="card">
+    <h2>Crear QR nuevo</h2>
+    <div class="row">
+      <div class="field">
+        <label>Nombre del negocio</label>
+        <input type="text" id="negocio" placeholder="Ej: Café Martínez">
+      </div>
+      <div class="field">
+        <label>Código (opcional)</label>
+        <input type="text" id="codigoManual" placeholder="se genera solo si lo dejás vacío">
+      </div>
+    </div>
+    <div class="field">
+      <label>Link de destino (la reseña de Google, el menú, etc.)</label>
+      <input type="text" id="destino" placeholder="https://...">
+    </div>
+    <button class="btn" onclick="crear()">Crear QR</button>
+    <div class="msg" id="crearMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>QR creados</h2>
+    <div class="qrlist" id="lista">
+      <div class="vacio">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let PASSWORD = sessionStorage.getItem("qr_admin_password") || "";
+
+function entrar() {
+  const p = document.getElementById("passInput").value;
+  if (!p) return;
+  PASSWORD = p;
+  sessionStorage.setItem("qr_admin_password", p);
+  probarLogin();
+}
+
+async function probarLogin() {
+  const res = await fetch("/api/listar?password=" + encodeURIComponent(PASSWORD));
+  if (res.status === 401) {
+    document.getElementById("loginMsg").textContent = "Contraseña incorrecta";
+    sessionStorage.removeItem("qr_admin_password");
+    return;
+  }
+  document.getElementById("login").style.display = "none";
+  document.getElementById("panel").style.display = "block";
+  cargarLista();
+}
+
+async function cargarLista() {
+  const el = document.getElementById("lista");
+  const res = await fetch("/api/listar?password=" + encodeURIComponent(PASSWORD));
+  const data = await res.json();
+  if (!data.ok) { el.innerHTML = '<div class="vacio">Error cargando la lista</div>'; return; }
+  if (data.qrs.length === 0) { el.innerHTML = '<div class="vacio">Todavía no creaste ningún QR</div>'; return; }
+
+  el.innerHTML = "";
+  data.qrs.forEach(qr => {
+    const div = document.createElement("div");
+    div.className = "qritem";
+    const linkRedirect = location.origin + "/api/r/" + encodeURIComponent(qr.codigo);
+    div.innerHTML = `
+      <img src="/api/qr?codigo=${encodeURIComponent(qr.codigo)}" alt="QR">
+      <div class="info">
+        <div class="negocio">${escapeHtml(qr.negocio || "(sin nombre)")}</div>
+        <div class="codigo">código: ${escapeHtml(qr.codigo)} · ${qr.clicks || 0} escaneos</div>
+        <div class="destino">→ ${escapeHtml(qr.url_destino)}</div>
+        <div class="acciones">
+          <button class="btn ghost" onclick="copiarLink('${linkRedirect}')">Copiar link del QR</button>
+          <a class="btn ghost" href="/api/qr?codigo=${encodeURIComponent(qr.codigo)}&format=svg" download="qr-${qr.codigo}.svg" style="text-decoration:none;display:inline-flex;align-items:center">Descargar SVG</a>
+          <button class="btn ghost" onclick="toggleEditar(this)">Cambiar destino</button>
+        </div>
+        <div class="editar-box">
+          <input type="text" placeholder="Nuevo link de destino" value="${escapeHtml(qr.url_destino)}">
+          <button class="btn" onclick="guardarEdicion(this, '${qr.codigo}')">Guardar</button>
+        </div>
+      </div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function toggleEditar(btn) {
+  const box = btn.closest(".info").querySelector(".editar-box");
+  box.classList.toggle("on");
+}
+
+async function guardarEdicion(btn, codigo) {
+  const input = btn.previousElementSibling;
+  const destino = input.value.trim();
+  btn.disabled = true;
+  const res = await fetch("/api/editar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD, codigo, destino }),
+  });
+  const data = await res.json();
+  btn.disabled = false;
+  if (!data.ok) { alert(data.error || "No se pudo actualizar"); return; }
+  cargarLista();
+}
+
+function copiarLink(link) {
+  navigator.clipboard.writeText(link).then(() => alert("Link copiado: " + link));
+}
+
+async function crear() {
+  const negocio = document.getElementById("negocio").value.trim();
+  const destino = document.getElementById("destino").value.trim();
+  const codigo = document.getElementById("codigoManual").value.trim();
+  const msg = document.getElementById("crearMsg");
+  msg.className = "msg"; msg.textContent = "Creando...";
+
+  const res = await fetch("/api/crear", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD, negocio, destino, codigo: codigo || undefined }),
+  });
+  const data = await res.json();
+
+  if (!data.ok) {
+    msg.className = "msg error"; msg.textContent = data.error || "Error";
+    return;
+  }
+  msg.className = "msg ok"; msg.textContent = "Listo, se creó el código: " + data.qr.codigo;
+  document.getElementById("negocio").value = "";
+  document.getElementById("destino").value = "";
+  document.getElementById("codigoManual").value = "";
+  cargarLista();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+if (PASSWORD) probarLogin();
+</script>
+</body>
+</html>
