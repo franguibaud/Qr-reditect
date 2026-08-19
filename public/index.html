@@ -160,6 +160,7 @@ async function cargarLista() {
           <button class="btn ghost" onclick="copiarLink('${linkRedirect}')">Copiar link del QR</button>
           <a class="btn ghost" href="/api/qr?codigo=${encodeURIComponent(qr.codigo)}&format=svg" download="qr-${qr.codigo}.svg" style="text-decoration:none;display:inline-flex;align-items:center">Descargar SVG</a>
           <button class="btn ghost" onclick="toggleEditar(this)">${qr.url_destino ? "Cambiar destino" : "Activar (cargar link)"}</button>
+          <button class="btn ghost" style="color:#b91c1c" onclick="borrar('${qr.codigo}')">Borrar</button>
         </div>
         <div class="editar-box">
           <input type="text" placeholder="Nuevo Place ID o link completo" value="${escapeHtml(qr.url_destino)}">
@@ -197,6 +198,18 @@ function armarDestino(valor) {
   const v = valor.trim();
   if (/^https?:\/\//i.test(v)) return v;
   return "https://search.google.com/local/writereview?placeid=" + encodeURIComponent(v);
+}
+
+async function borrar(codigo) {
+  if (!confirm(`¿Borrar el código "${codigo}"? No se puede deshacer.`)) return;
+  const res = await fetch("/api/borrar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD, codigo }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert(data.error || "No se pudo borrar"); return; }
+  cargarLista();
 }
 
 function copiarLink(link) {
