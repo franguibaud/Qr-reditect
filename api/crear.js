@@ -24,16 +24,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!negocio || !destino) {
-    res.status(400).json({ error: "Falta el nombre del negocio o el link de destino" });
+  if (!negocio) {
+    res.status(400).json({ error: "Falta el nombre del negocio" });
     return;
   }
 
-  try {
-    new URL(destino);
-  } catch {
-    res.status(400).json({ error: "El link de destino no es una URL válida (tiene que empezar con https://)" });
-    return;
+  // El link de destino es opcional: se puede crear el código y el cartelito
+  // ya con el QR impreso, y cargar el link recién cuando se cierre la venta.
+  // Hasta que se cargue, el QR muestra "Este cartelito todavía no está activado".
+  if (destino) {
+    try {
+      new URL(destino);
+    } catch {
+      res.status(400).json({ error: "El link de destino no es una URL válida (tiene que empezar con https://)" });
+      return;
+    }
   }
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -81,7 +86,7 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       codigo: codigoFinal,
       negocio,
-      url_destino: destino,
+      url_destino: destino || "",
       clicks: 0,
     }),
   });
