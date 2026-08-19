@@ -97,8 +97,8 @@
       </div>
     </div>
     <div class="field">
-      <label>Link de destino (la reseña de Google, el menú, etc.)</label>
-      <input type="text" id="destino" placeholder="https://...">
+      <label>Place ID de Google (o un link completo si no es una reseña)</label>
+      <input type="text" id="destino" placeholder="ChIJg6keB459vJURu741WYe02M4  —  o pegá un https://... completo">
     </div>
     <button class="btn" onclick="crear()">Crear QR</button>
     <div class="msg" id="crearMsg"></div>
@@ -159,7 +159,7 @@ async function cargarLista() {
           <button class="btn ghost" onclick="toggleEditar(this)">Cambiar destino</button>
         </div>
         <div class="editar-box">
-          <input type="text" placeholder="Nuevo link de destino" value="${escapeHtml(qr.url_destino)}">
+          <input type="text" placeholder="Nuevo Place ID o link completo" value="${escapeHtml(qr.url_destino)}">
           <button class="btn" onclick="guardarEdicion(this, '${qr.codigo}')">Guardar</button>
         </div>
       </div>
@@ -175,7 +175,7 @@ function toggleEditar(btn) {
 
 async function guardarEdicion(btn, codigo) {
   const input = btn.previousElementSibling;
-  const destino = input.value.trim();
+  const destino = armarDestino(input.value);
   btn.disabled = true;
   const res = await fetch("/api/editar", {
     method: "POST",
@@ -188,13 +188,22 @@ async function guardarEdicion(btn, codigo) {
   cargarLista();
 }
 
+// Si lo que se pegó no es un link (no empieza con http), se asume que es
+// un Place ID de Google y se arma el link de "escribir reseña" solo.
+function armarDestino(valor) {
+  const v = valor.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return "https://search.google.com/local/writereview?placeid=" + encodeURIComponent(v);
+}
+
 function copiarLink(link) {
   navigator.clipboard.writeText(link).then(() => alert("Link copiado: " + link));
 }
 
 async function crear() {
   const negocio = document.getElementById("negocio").value.trim();
-  const destino = document.getElementById("destino").value.trim();
+  const destinoInput = document.getElementById("destino").value.trim();
+  const destino = destinoInput ? armarDestino(destinoInput) : "";
   const codigo = document.getElementById("codigoManual").value.trim();
   const msg = document.getElementById("crearMsg");
   msg.className = "msg"; msg.textContent = "Creando...";
